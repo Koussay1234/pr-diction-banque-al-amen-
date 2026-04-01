@@ -1,0 +1,16 @@
+Date,Analyste,Modele,Age,Sexe,Emploi,Logement,Epargne,Compte_Courant,Montant_Credit,Duree_Mois,Objet,Score_Risque_pct,Confiance_pct,Decision,Statut
+2026-03-17 01:50:59,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
+2026-03-17 02:09:44,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
+2026-03-17 02:10:16,koussay,Naive Bayes,35,female,0,free,little,little,3000,24,business,98.1,98.1,RISQUE ÉLEVÉ,bad
+2026-03-17 02:10:29,koussay,KNN (K=17),35,female,0,free,little,little,3000,24,business,58.82,58.82,RISQUE ÉLEVÉ,bad
+2026-03-17 02:10:45,koussay,KNN (K=17),35,female,0,free,little,little,3000,24,business,58.82,58.82,BON CLIENT,good
+2026-03-17 02:13:04,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
+2026-03-17 02:30:54,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
+2026-03-17 02:45:03,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
+2026-03-17 02:47:36,koussay,Arbre Décision,24,male,0,free,moderate,rich,3000,10,education,0.0,100.0,BON CLIENT,good
+2026-03-17 02:49:28,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
+2026-03-17 03:05:23,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
+2026-03-17 03:15:34,koussay,Arbre Décision,31,male,2,free,quite rich,moderate,3000,17,business,0.0,100.0,BON CLIENT,good
+2026-03-17 03:16:03,koussay,Naive Bayes,31,male,2,free,quite rich,moderate,3000,17,business,99.91,99.91,RISQUE ÉLEVÉ,bad
+2026-03-17 03:16:21,koussay,KNN (K=17),31,male,2,free,quite rich,moderate,3000,17,business,41.18,58.82,BON CLIENT,good
+2026-03-17 03:30:19,koussay,Arbre Décision,35,female,0,free,little,little,3000,24,business,100.0,100.0,RISQUE ÉLEVÉ,bad
