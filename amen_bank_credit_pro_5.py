@@ -751,6 +751,7 @@ def render_sidebar():
             "Tableau de Bord":   ("🏠", "Tableau de Bord",        "",        "Vue d'ensemble"),
             "Exploration":       ("📊", "Exploration",             "",        "EDA & Graphiques"),
             "Prédiction Client": ("🔮", "Prédiction Client",       "IA+PDF",  "Analyse + IA + PDF"),
+            
             "Données":           ("📋", "Données & Historique",    "",        "Jeu de données"),
         }
 
@@ -977,7 +978,7 @@ def page_dashboard(df):
     with col2:
         section("Montant Moyen par Objet du Crédit")
         pa = df.groupby("Purpose")["Credit amount"].mean().sort_values()
-        pa.index = [TR_PURPOSE.get(v, v) for v in pa.index]
+        pa.index = pa.index
         fig2 = go.Figure(go.Bar(
             x=pa.values, y=pa.index, orientation="h",
             marker_color=[VERT if i % 2 == 0 else VERT_C for i in range(len(pa))],
@@ -992,7 +993,6 @@ def page_dashboard(df):
             lambda x: (x == "bad").sum() / len(x) * 100
         ).reset_index()
         grp.columns = ["Housing", "pct_bad"]
-        grp["Housing"] = grp["Housing"].map(lambda v: TR_HOUSING.get(v, v))
         grp = grp.sort_values("pct_bad", ascending=False)
         fig_h = go.Figure(go.Bar(
             x=grp["pct_bad"], y=grp["Housing"], orientation="h",
@@ -1030,9 +1030,9 @@ def page_dashboard(df):
 
     with col4b:
         section("Durée vs Montant Crédit")
-        df_sc = df.copy(); df_sc["Risk"] = df_sc["Risk"].map(TR_RISK)
+        df_sc = df.copy()
         fig4 = px.scatter(df_sc, x="Duration", y="Credit amount", color="Risk",
-                          color_discrete_map={"Bon Client": VERT_C, "Client à Risque": ROUGE},
+                          color_discrete_map={"good": VERT_C, "bad": ROUGE},
                           opacity=0.55, trendline="lowess")
         plotly_layout(fig4)
         st.plotly_chart(fig4, use_container_width=True)
@@ -1089,7 +1089,6 @@ def page_dashboard(df):
             sex_grp["Taux Défaut"] = (sex_grp["Mauvais"] / sex_grp["Total"] * 100).round(1).astype(str) + "%"
             sex_grp["Montant Moy"] = df.groupby("Sex")["Credit amount"].mean().round(0).astype(int).values
             sex_grp["Montant Moy"] = sex_grp["Montant Moy"].apply(lambda x: f"{x:,} TND")
-            sex_grp["Sex"] = sex_grp["Sex"].map(lambda v: TR_SEX.get(v, v))
             sex_grp = sex_grp.rename(columns={"Sex": "Sexe", "Total": "Total", "Bons": "Bons Clients", "Mauvais": "Clients à Risque"})
             st.dataframe(sex_grp, use_container_width=True, hide_index=True)
 
@@ -1100,7 +1099,6 @@ def page_dashboard(df):
         Mauvais=("Risk", lambda x: (x=="bad").sum()),
     ).reset_index()
     purpose_grp["Taux_Defaut"] = purpose_grp["Mauvais"] / purpose_grp["Total"] * 100
-    purpose_grp["Purpose"] = purpose_grp["Purpose"].map(lambda v: TR_PURPOSE.get(v, v))
     purpose_grp = purpose_grp.sort_values("Taux_Defaut", ascending=True)
     fig_pur = go.Figure(go.Bar(
         y=purpose_grp["Purpose"],
@@ -1170,14 +1168,14 @@ def page_eda(df):
         section("Montant Crédit vs Risque (Box Plot)")
         col1, col2 = st.columns(2)
         with col1:
-            df_plot = df.copy(); df_plot["Risk"] = df_plot["Risk"].map(TR_RISK)
+            df_plot = df.copy()
             fig_b = px.box(df_plot, x="Risk", y="Credit amount", color="Risk",
-                           color_discrete_map={"Bon Client": VERT_C, "Client à Risque": ROUGE}, points="outliers")
+                           color_discrete_map={"good": VERT_C, "bad": ROUGE}, points="outliers")
             plotly_layout(fig_b, height=340)
             st.plotly_chart(fig_b, use_container_width=True)
         with col2:
             fig_v = px.violin(df_plot, x="Risk", y="Duration", color="Risk",
-                              color_discrete_map={"Bon Client": BLEU, "Client à Risque": ROUGE}, box=True)
+                              color_discrete_map={"good": BLEU, "bad": ROUGE}, box=True)
             plotly_layout(fig_v, height=340)
             st.plotly_chart(fig_v, use_container_width=True)
 
@@ -1196,9 +1194,9 @@ def page_eda(df):
             st.plotly_chart(fig3, use_container_width=True)
 
         section("Matrice de Dispersion")
-        df_pm = df.copy(); df_pm["Risk"] = df_pm["Risk"].map(TR_RISK)
+        df_pm = df.copy()
         fig_pm = px.scatter_matrix(df_pm, dimensions=NUM, color="Risk",
-                                   color_discrete_map={"Bon Client": VERT_C, "Client à Risque": ROUGE}, opacity=0.4)
+                                   color_discrete_map={"good": VERT_C, "bad": ROUGE}, opacity=0.4)
         fig_pm.update_traces(diagonal_visible=False)
         fig_pm.update_layout(height=500, paper_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig_pm, use_container_width=True)
@@ -1214,8 +1212,7 @@ def page_eda(df):
         }
         for cat in ["Housing", "Saving accounts", "Purpose", "Sex"]:
             df_cat = df.copy()
-            df_cat[cat] = df_cat[cat].map(lambda v: CAT_TR[cat].get(v, v))
-            df_cat["Risk"] = df_cat["Risk"].map(TR_RISK)
+            df_cat["Risk"] = df_cat["Risk"].map({"good": "Bon Client", "bad": "Client à Risque"})
             cnt = df_cat.groupby([cat, "Risk"]).size().reset_index(name="count")
             fig4 = px.bar(cnt, x=cat, y="count", color="Risk", barmode="group",
                           color_discrete_map={"Bon Client": VERT_C, "Client à Risque": ROUGE},
@@ -1827,29 +1824,24 @@ def page_prediction(df, df_raw, df_enc, encoders, clf, xgb_model, scaler):
     with c1:
         st.markdown("**👤 Données Personnelles**")
         age     = st.slider("Âge", 18, 80, 35)
-        sex     = st.selectbox("Sexe", get_vals("Sex"),
-                               format_func=lambda x: TR_SEX.get(x, x))
+        sex     = st.selectbox("Sexe", get_vals("Sex"))
         job     = st.selectbox("Catégorie Emploi", [0, 1, 2, 3],
                                format_func=lambda x: {
                                    0: "0 – Sans emploi", 1: "1 – Non qualifié",
                                    2: "2 – Qualifié", 3: "3 – Très qualifié",
                                }[x])
-        housing = st.selectbox("Logement", get_vals("Housing"),
-                               format_func=lambda x: TR_HOUSING.get(x, x))
+        housing = st.selectbox("Logement", get_vals("Housing"))
 
     with c2:
         st.markdown("**💳 Situation Financière**")
-        saving   = st.selectbox("Compte Épargne",  get_vals("Saving accounts"),
-                                format_func=lambda x: TR_SAVING.get(x, x))
-        checking = st.selectbox("Compte Courant",  get_vals("Checking account"),
-                                format_func=lambda x: TR_CHECKING.get(x, x))
+        saving   = st.selectbox("Compte Épargne",  get_vals("Saving accounts"))
+        checking = st.selectbox("Compte Courant",  get_vals("Checking account"))
         credit   = st.number_input("Montant Crédit (TND)", 250, 20_000, 3_000, step=100)
 
     with c3:
         st.markdown("**📋 Détails du Crédit**")
         duration = st.slider("Durée (mois)", 4, 72, 24)
-        purpose  = st.selectbox("Objet du Crédit", get_vals("Purpose"),
-                                format_func=lambda x: TR_PURPOSE.get(x, x))
+        purpose  = st.selectbox("Objet du Crédit", get_vals("Purpose"))
         mensualite = credit / duration
         st.markdown(f"""
         <div style="background:{VERT_BG};border-radius:10px;padding:.9rem;
@@ -2138,40 +2130,17 @@ def page_prediction(df, df_raw, df_enc, encoders, clf, xgb_model, scaler):
 
     st.success(f"✅ Analyse enregistrée dans l'historique — {datetime.datetime.now().strftime('%H:%M:%S')}")
 
-    # ── PDF ───────────────────────────────────────────────
-    st.markdown("<br>", unsafe_allow_html=True)
-    pdf_bytes = generate_prediction_pdf(
-        client_raw=client_raw, tree_class=tree_class, tree_proba=tree_proba,
-        risk_score=risk_score, tree_label=decision_finale,
-        analyste=u["name"], rec_titre=rec_titre, rec_text=rec_text,
-    )
-    _pc1, _pc2 = st.columns([3, 1])
-    with _pc1:
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,{VERT_DARK},{VERT});
-          border-radius:14px;padding:1rem 1.5rem;border:1.5px solid {OR}55;
-          display:flex;align-items:center;gap:12px;
-          box-shadow:0 6px 20px rgba(0,107,60,.25)">
-          <div style="font-size:2rem">📄</div>
-          <div>
-            <div style="font-family:'Playfair Display',serif;font-size:.95rem;
-              color:white;font-weight:700">Rapport d'Analyse Complet — Amen Bank</div>
-            <div style="font-size:.7rem;color:rgba(255,255,255,.55);margin-top:2px">
-              Décision · Score XGBoost · Recommandations · Données client · Barre de risque
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-    with _pc2:
-        if pdf_bytes:
-            st.markdown("<div style='height:.55rem'></div>", unsafe_allow_html=True)
-            st.download_button(
-                label="⬇️ PDF",
-                data=pdf_bytes,
-                file_name=f"amen_bank_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                key="pdf_top",
-            )
+    # ── Génération PDF initiale (sans IA) — stockée en session_state ─
+    if "pdf_bytes_basic" not in st.session_state or st.session_state.get("pdf_pred_key") != id(R):
+        _pdf_b = generate_prediction_pdf(
+            client_raw=client_raw, tree_class=tree_class, tree_proba=tree_proba,
+            risk_score=risk_score, tree_label=decision_finale,
+            analyste=u["name"], rec_titre=rec_titre, rec_text=rec_text,
+        )
+        st.session_state["pdf_bytes_basic"] = _pdf_b
+        st.session_state["pdf_pred_key"] = id(R)
+
+    pdf_bytes = st.session_state.get("pdf_bytes_basic", b"")
 
     # ══════════════════════════════════════════════════════
     #  IA ANALYSTE — Groq llama-3.3-70b-versatile  v2.0
@@ -2404,9 +2373,7 @@ Sois très précis : cite les chiffres exacts du dossier."""
             st.session_state.ia_graphs_shown  = []
             _auto_q = (
                 "Lance l'analyse complète de ce dossier en 4 sections structurées. "
-                "Cite les chiffres exacts. Sois précis et actionnable. "
-                "Si tu veux montrer l'importance des variables après la section 3, "
-                "place le marqueur approprié."
+                "Cite les chiffres exacts. Sois précis et actionnable."
             )
             st.session_state.ia_pred_messages = [{"role": "user", "content": _auto_q}]
             with st.spinner("🤖 Dr. Analyste IA prépare l'analyse complète du dossier…"):
@@ -2470,7 +2437,7 @@ Sois très précis : cite les chiffres exacts du dossier."""
 
                 if _gtypes:
                     for _gt in _gtypes:
-                        if _gt not in st.session_state.ia_graphs_shown:
+                        if _gt not in st.session_state.ia_graphs_shown and _gt != "importance":
                             _graphs_to_render.append((_i, _gt))
 
         if not _html:
@@ -2522,39 +2489,6 @@ Sois très précis : cite les chiffres exacts du dossier."""
                         {"role": "assistant", "content": _rep2})
                     st.rerun()
 
-        # ── Suggestions contextuelles intelligentes ───────
-        st.markdown('<div class="ia-sugg-lbl">⚡ Questions de suivi — Cliquez pour envoyer</div>',
-                    unsafe_allow_html=True)
-        _purpose_fr = TR_PURPOSE.get(str(purpose), str(purpose))
-        _sugg = [
-            ("📊", "importance",
-             "Montre l'importance des variables XGBoost pour ce dossier [GRAPH:importance]"),
-            ("📈", "distribution",
-             f"Où se situe ce score de {risk_score:.0f}% par rapport au portefeuille ? [GRAPH:distribution]"),
-            ("🔍", "risque_specifique",
-             f"Quels sont les 3 principaux facteurs de risque pour un crédit {_purpose_fr} de {credit:,.0f} TND ?"),
-            ("💡", "garanties",
-             f"Quelles garanties concrètes exiger pour un client de {age} ans avec ce profil ?"),
-            ("⚖️", "comparaison",
-             f"Compare ce profil aux clients similaires dans le portefeuille [GRAPH:convergence]"),
-            ("💰", "montant_max",
-             f"Quel est le montant maximum de crédit sécurisé pour ce profil précis ?"),
-            ("🏛️", "bct",
-             "Analyse la conformité de ce dossier avec la réglementation BCT Tunisie 2024."),
-            ("🕸️", "radar",
-             "Montre le radar normalisé du profil client [GRAPH:radar]"),
-        ]
-        _row1, _row2 = st.columns(4), st.columns(4)
-        for _i, (_ic, _key, _txt) in enumerate(_sugg):
-            _col = _row1[_i] if _i < 4 else _row2[_i - 4]
-            with _col:
-                _display = _clean_ia_text(_txt)
-                _lbl     = f"{_ic} {_display[:30]}…" if len(_display) > 30 else f"{_ic} {_display}"
-                if st.button(_lbl, key=f"ia_sg_{_key}", use_container_width=True):
-                    st.session_state.ia_pred_messages.append(
-                        {"role": "user", "content": _display})
-                    st.rerun()
-
         # ── Saisie libre ──────────────────────────────────
         st.markdown("<div style='height:.4rem'></div>", unsafe_allow_html=True)
         _ci, _cb = st.columns([5, 1])
@@ -2592,12 +2526,19 @@ Sois très précis : cite les chiffres exacts du dossier."""
     # ════════════════════════════════════════════════════
     _ia_txt = st.session_state.get("ia_auto_analysis", "")
     if _ia_txt:
-        pdf_bytes = generate_prediction_pdf(
+        _pdf_with_ia = generate_prediction_pdf(
             client_raw=client_raw, tree_class=tree_class, tree_proba=tree_proba,
             risk_score=risk_score, tree_label=decision_finale,
             analyste=u["name"], rec_titre=rec_titre, rec_text=rec_text,
             ia_analysis=_ia_txt,
         )
+        if _pdf_with_ia:
+            st.session_state["pdf_bytes_ia"] = _pdf_with_ia
+            pdf_bytes = _pdf_with_ia
+        else:
+            pdf_bytes = st.session_state.get("pdf_bytes_basic", b"")
+    else:
+        pdf_bytes = st.session_state.get("pdf_bytes_basic", b"")
 
     # ── PDF en bas (toujours visible) ────────────────────
     if pdf_bytes:
@@ -3092,286 +3033,7 @@ def page_data(df):
                 ana_grp.columns = ["Analyste", "Total", "✅ BON CLIENT",
                                    "⚠️ CLIENT À RISQUE", "Taux Approbation", "Score Moyen"]
                 st.dataframe(ana_grp, use_container_width=True, hide_index=True)
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  PAGE ANALYSTE IA — GROQ (100% GRATUIT)
-# ══════════════════════════════════════════════════════════════════════════════
-def page_ia_chat(df_raw):
-    """Page Analyste IA — Chat avec Groq API (100% gratuit)"""
-    import requests as _req
-
-    render_header("🤖 Analyste IA — Groq (100% Gratuit)", "Assistant Intelligent d'Analyse Crédit · Sans crédit · Sans carte bancaire")
-
-    # ── CSS (identique à avant, je le garde) ─────────────────
-    st.markdown(f"""
-    <style>
-    .ia-chat-wrap {{
-      background: white; border-radius: 18px; border: 1.5px solid #E2E8F0;
-      box-shadow: 0 6px 28px rgba(0,107,60,.10); overflow: hidden; margin-bottom: 1rem;
-    }}
-    .ia-chat-header {{
-      background: linear-gradient(135deg,{VERT_DARK} 0%,{VERT} 60%,{VERT_C} 100%);
-      padding: .85rem 1.4rem; display: flex; align-items: center; gap: 12px;
-      border-bottom: 3px solid {OR};
-    }}
-    .ia-chat-header .ia-avatar {{
-      width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.15);
-      border: 2px solid {OR}; display: flex; align-items: center; justify-content: center;
-      font-size: 1.25rem;
-    }}
-    .ia-chat-header .ia-title {{
-      font-family: 'Playfair Display', serif; font-size: 1.05rem;
-      color: white; font-weight: 700; line-height: 1;
-    }}
-    .ia-chat-header .ia-sub {{
-      font-size: .65rem; color: rgba(255,255,255,.55); letter-spacing: .5px; margin-top: 2px;
-    }}
-    .ia-online-dot {{
-      width: 9px; height: 9px; background: #22C55E; border-radius: 50%;
-      box-shadow: 0 0 0 3px rgba(34,197,94,.25); margin-left: auto;
-      animation: pulse-dot 2s infinite;
-    }}
-    @keyframes pulse-dot {{ 0%,100% {{opacity:1}} 50% {{opacity:.4}} }}
-    .ia-messages {{
-      min-height: 340px; max-height: 420px; overflow-y: auto;
-      padding: 1.2rem 1.2rem .5rem; background: #F8FAFC;
-    }}
-    .ia-msg-user {{ display: flex; justify-content: flex-end; margin-bottom: .85rem; gap: 8px; align-items: flex-end; }}
-    .ia-msg-ai   {{ display: flex; justify-content: flex-start;  margin-bottom: .85rem; gap: 8px; align-items: flex-end; }}
-    .ia-bubble-user {{
-      background: linear-gradient(135deg,{VERT} 0%,{VERT_C} 100%);
-      color: white; border-radius: 18px 18px 4px 18px;
-      padding: .7rem 1rem; max-width: 76%; font-size: .87rem; line-height: 1.65;
-      box-shadow: 0 3px 12px rgba(0,107,60,.22);
-    }}
-    .ia-bubble-ai {{
-      background: white; border: 1px solid #E2E8F0; color: #1A202C;
-      border-radius: 18px 18px 18px 4px;
-      padding: .7rem 1rem; max-width: 76%; font-size: .87rem; line-height: 1.65;
-      box-shadow: 0 3px 12px rgba(0,0,0,.06);
-    }}
-    .ia-av {{
-      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: .9rem;
-    }}
-    .ia-av-user {{ background: {VERT}; }}
-    .ia-av-ai   {{ background: linear-gradient(135deg,#1A1A2E,#16213E); }}
-    .ia-empty {{
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 2.5rem 1rem; color: #9CA3AF; text-align: center;
-    }}
-    .ia-empty .ia-empty-icon {{ font-size: 2.8rem; margin-bottom: .6rem; }}
-    .ia-empty .ia-empty-title {{ font-size: 1rem; font-weight: 700; color: #4B5563; margin-bottom: .3rem; }}
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ── Stats du portefeuille ───────────────────────────────
-    n_total    = len(df_raw)
-    n_good     = int((df_raw["Risk"] == "good").sum())
-    n_bad      = int((df_raw["Risk"] == "bad").sum())
-    avg_age    = df_raw["Age"].mean()
-    avg_credit = df_raw["Credit amount"].mean()
-    avg_dur    = df_raw["Duration"].mean()
-    taux_bon   = n_good / n_total * 100
-
-    # ── KPI rapides ─────────────────────────────────────────
-    section("📊 Contexte du Portefeuille Analysé")
-    k1, k2, k3, k4, k5 = st.columns(5)
-    kpi(k1, f"{n_total:,}",          "Clients Totaux",        "👥")
-    kpi(k2, f"{taux_bon:.1f}%",      "Taux Bons Clients",     "✅", "kpi-success")
-    kpi(k3, f"{n_bad/n_total*100:.1f}%", "Taux de Risque",   "⚠️", "kpi-danger")
-    kpi(k4, f"{avg_credit:,.0f}",    "Crédit Moyen (TND)",    "💰", "kpi-or")
-    kpi(k5, f"{avg_dur:.0f} mois",   "Durée Moyenne",         "📅", "kpi-blue")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── Système prompt ──────────────────────────────────────
-    ctx_stats = (
-        f"Portefeuille : {n_total} clients | "
-        f"{n_good} bons clients ({taux_bon:.1f}%) | "
-        f"{n_bad} clients à risque ({n_bad/n_total*100:.1f}%) | "
-        f"Âge moyen : {avg_age:.1f} ans | "
-        f"Crédit moyen : {avg_credit:,.0f} TND | "
-        f"Durée moyenne : {avg_dur:.1f} mois."
-    )
-    purpose_dist = df_raw["Purpose"].value_counts().head(4).to_dict()
-    purpose_str  = " | ".join(f"{k}: {v}" for k, v in purpose_dist.items())
-
-    SYSTEM_PROMPT = f"""Tu es un analyste expert en risque crédit pour Amen Bank Tunisie.
-Réponds TOUJOURS en français, de façon professionnelle et structurée.
-Utilise des emojis pour organiser ta réponse.
-
-═══ DONNÉES ACTUELLES DU PORTEFEUILLE ═══
-{ctx_stats}
-Top objets de crédit : {purpose_str}
-
-═══ MODÈLES DÉPLOYÉS ═══
-• Arbre de Décision : classification Bon Client / Client à Risque
-• XGBoost : prédit un score de risque (0-100%)
-  Règle : Score ≤ 50% → BON CLIENT | Score > 50% → CLIENT À RISQUE
-
-═══ CONSIGNE ═══
-Sois concis, chiffré et actionnable. Recommandations conformes à la réglementation BCT."""
-
-    # ── Config API GROQ ─────────────────────────────────────
-    col_key, col_clear = st.columns([4, 1])
-    with col_key:
-        api_key = st.text_input(
-            "🔑 Clé API Groq (Gratuite)",
-            value=st.session_state.get("groq_api_key", ""),
-            type="password",
-            placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-            help="Obtenez votre clé sur console.groq.com (gratuit, sans carte bancaire)",
-        )
-        if api_key != st.session_state.get("groq_api_key", ""):
-            st.session_state.groq_api_key = api_key
-    with col_clear:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🗑️ Effacer chat", use_container_width=True):
-            st.session_state.ia_messages = []
-            st.rerun()
-
-    # Modèle garanti actif
-    MODEL_NAME = "llama-3.3-70b-versatile"
-
-    st.markdown(f"""
-    <div style="background:{VERT_BG};border:1px solid {VERT};border-radius:8px;
-                padding:.45rem .8rem;font-size:.78rem;color:{VERT_DARK};margin-bottom:1rem">
-      🤖 <b>Modèle actif :</b> <code>{MODEL_NAME}</code> — 100% gratuit · Supporté par Groq
-    </div>""", unsafe_allow_html=True)
-
-    if not api_key:
-        st.markdown(f"""
-        <div style="background:#FEF3C7;border-left:4px solid {OR};border-radius:0 10px 10px 0;
-                    padding:.75rem 1.2rem;font-size:.87rem;color:#92400E;margin-bottom:1rem">
-          🎉 <b>GROQ API 100% GRATUITE</b> — Créez un compte sur 
-          <a href="https://console.groq.com" target="_blank" style="color:{BLEU}">console.groq.com</a>
-          (sans carte bancaire), copiez votre clé et collez-la ci-dessus.
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── Suggestions rapides ─────────────────────────────────
-    section("⚡ Questions Rapides")
-    SUGGESTIONS = [
-        ("📊", "Analyse le profil type du client à risque dans ce portefeuille"),
-        ("💡", "Quels sont les 3 facteurs qui augmentent le plus le risque de défaut ?"),
-        ("🎯", "Donne-moi 5 recommandations concrètes pour réduire le taux de risque"),
-        ("⚖️", "Compare les profils des bons clients vs clients à risque"),
-        ("💰", "Quels objets de crédit présentent le plus grand risque ?"),
-    ]
-    cols_s = st.columns(3)
-    for i, (icon, txt) in enumerate(SUGGESTIONS):
-        with cols_s[i % 3]:
-            if st.button(f"{icon} {txt[:45]}…" if len(txt) > 45 else f"{icon} {txt}",
-                         key=f"ia_sug_{i}", use_container_width=True):
-                st.session_state.ia_messages.append({"role": "user", "content": txt})
-                st.rerun()
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    section("💬 Fenêtre de Chat IA")
-
-    # ── Rendu du chat ───────────────────────────────────────
-    msgs = st.session_state.ia_messages
-    bubbles_html = ""
-    if not msgs:
-        bubbles_html = f"""
-        <div class="ia-empty">
-          <div class="ia-empty-icon">🤖</div>
-          <div class="ia-empty-title">Groq — Analyste Risque Crédit</div>
-          <div style="font-size:.83rem">Posez votre question ou cliquez sur une suggestion ci-dessus.<br>🔥 <b>100% gratuit</b> — Pas de crédits, pas de carte bancaire !</div>
-        </div>"""
-    else:
-        for m in msgs:
-            if m["role"] == "user":
-                bubbles_html += f"""
-                <div class="ia-msg-user">
-                  <div class="ia-bubble-user">{m['content']}</div>
-                  <div class="ia-av ia-av-user">👤</div>
-                </div>"""
-            else:
-                content = m["content"].replace("\n", "<br>")
-                bubbles_html += f"""
-                <div class="ia-msg-ai">
-                  <div class="ia-av ia-av-ai">🤖</div>
-                  <div class="ia-bubble-ai">{content}</div>
-                </div>"""
-
-    st.markdown(f"""
-    <div class="ia-chat-wrap">
-      <div class="ia-chat-header">
-        <div class="ia-avatar">🤖</div>
-        <div>
-          <div class="ia-title">Groq Analyste — Amen Bank</div>
-          <div class="ia-sub">Risque Crédit · 100% GRATUIT · Modèle Llama 3.3 70B</div>
-        </div>
-        <div class="ia-online-dot" title="En ligne"></div>
-      </div>
-      <div class="ia-messages">{bubbles_html}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Traitement de la réponse ────────────────────────────
-    if msgs and msgs[-1]["role"] == "user":
-        if not api_key:
-            st.warning("⚠️ Entrez votre clé API Groq pour recevoir une réponse.")
-        else:
-            with st.spinner("🤖 Groq analyse votre demande (100% gratuit)…"):
-                try:
-                    payload = {
-                        "model": MODEL_NAME,
-                        "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + [
-                            {"role": m["role"] if m["role"] != "assistant" else "assistant",
-                             "content": m["content"]} for m in msgs
-                        ],
-                        "max_tokens": 1200,
-                        "temperature": 0.65,
-                    }
-                    resp = _req.post(
-                        "https://api.groq.com/openai/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        json=payload,
-                        timeout=60,
-                    )
-                    if resp.status_code == 200:
-                        reply = resp.json()["choices"][0]["message"]["content"]
-                        st.session_state.ia_messages.append({"role": "assistant", "content": reply})
-                        st.rerun()
-                    else:
-                        st.error(f"❌ Erreur API ({resp.status_code}) : {resp.text[:500]}")
-                except Exception as e:
-                    st.error(f"❌ Erreur : {str(e)}")
-
-    # ── Zone de saisie ──────────────────────────────────────
-    col_inp, col_send = st.columns([5, 1])
-    with col_inp:
-        user_input = st.text_input(
-            "msg",
-            placeholder="💬 Ex : Analyse les clients de plus de 50 ans dans ce portefeuille…",
-            label_visibility="collapsed",
-            key="ia_text_input",
-        )
-    with col_send:
-        send_btn = st.button("Envoyer ➤", use_container_width=True, key="ia_send")
-
-    if send_btn and user_input.strip():
-        st.session_state.ia_messages.append({"role": "user", "content": user_input.strip()})
-        st.rerun()
-
-    n_msgs = len([m for m in msgs if m["role"] == "user"])
-    st.markdown(f"""
-    <div style="margin-top:1.2rem;padding:.8rem 1.2rem;background:#F8FAFC;
-                border-radius:10px;border:1px solid #E2E8F0;font-size:.73rem;color:#6B7280">
-      🤖 <b>Groq API — 100% GRATUIT</b> · Modèle : <code>{MODEL_NAME}</code>
-      · Messages : <b>{n_msgs}</b> · Contexte : {n_total} clients · Amen Bank Tunisie
-      <span style="float:right;color:#00A651;font-weight:700">✅ Aucun crédit nécessaire</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════════
 #  MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
